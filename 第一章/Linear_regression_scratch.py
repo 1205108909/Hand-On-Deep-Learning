@@ -4,7 +4,7 @@
 """
 @Author : wangzhaoyun
 @Contact:1205108909@qq.com
-@File : 1.Linear_regression_scratch.py
+@File : Linear_regression_scratch.py
 @Time : 2020/6/5 8:59
 """
 

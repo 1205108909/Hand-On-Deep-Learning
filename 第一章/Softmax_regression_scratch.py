@@ -12,6 +12,11 @@ import matplotlib.pyplot as plt
 from mxnet import gluon
 from mxnet import ndarray as nd
 
+import sys
+sys.path.append('..')
+from Linear_regression_scratch import SGD
+from mxnet import autograd
+
 
 def transform(data, label):
     return data.astype('float32') / 255, label.astype('float32')
@@ -84,3 +89,52 @@ print(f'x_probsum = {x_prob.sum(axis=1)}')
 
 def net(X):
     return softmax(nd.dot(X.reshape((-1,num_inputs)),W)+b) #-1系统自己决定行数
+
+#4.交叉熵损失函数
+def cross_entropy(yhat,y):
+    return -nd.pick(nd.log(yhat),y)
+
+#5.计算精度
+def accuracy(output,label):  #output是预测值
+    return nd.mean(output.argmax(axis = 1) == label).asscalar()
+
+def evaluate_accuracy(data_iterator,net):
+    acc = 0
+    for data,label in data_iterator:
+        output = net(data)
+        acc += accuracy(output,label)
+    return acc/len(data_iterator)
+
+evaluate_accuracy(test_data,net)
+print(evaluate_accuracy(test_data,net))
+
+#6.训练
+
+
+learning_rate = 0.1
+for epoch in range(5):
+    train_loss = 0
+    train_acc = 0
+    for data,label in train_data:
+        with autograd.record():
+            output  = net(data)
+            loss = cross_entropy(output,label)
+        loss.backward()
+        #将梯度平均，这样学习率对batchsize 不敏感
+        SGD(params,learning_rate/batch_size)
+
+        train_loss += nd.mean(loss).asscalar()
+        train_acc += accuracy(output,label)
+
+#预测
+data,label = mnist_test[0:9]
+show_images(data)
+print('true labels:')
+print(get_text_labels(label))
+
+predicted_labels = net(data).argmax(axis=1)
+print('predicted labels')
+print(get_text_labels(predicted_labels.asnumpy()))
+
+
+
