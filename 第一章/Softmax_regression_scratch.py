@@ -70,17 +70,20 @@ params = [W, b]
 for param in params:
     param.attach_grad()  # 对模型参数附上梯度
 
+
 # 3.定义模型
 def softmax(X):
     exp = nd.exp(X)
     partition = exp.sum(axis=1, keepdims=True)
     return exp / partition
 
-x= nd.random_normal(shape=(2,5))
+
+x = nd.random_normal(shape=(2, 5))
 x_prob = softmax(x)
 print(f'x={x}')
 print(f'x_prob ={x_prob}')
 print(f'x_probsum = {x_prob.sum(axis=1)}')
 
+
 def net(X):
-    return softmax(nd.dot(X.reshape((-1,num_inputs)),W)+b) #-1系统自己决定行数
+    return softmax(nd.dot(X.reshape((-1, num_inputs)), W) + b)  # -1系统自己决定行数

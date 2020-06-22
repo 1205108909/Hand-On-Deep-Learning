@@ -34,7 +34,7 @@ def data_iter():
         j = nd.array(idx[i:min(i + batch_size, num_example)])
         yield nd.take(X, j), nd.take(Y, j)
 
-for data, label in data_iter():
+for data, label in data_iter(): #data：预测值；label：真实值
     print(data, label)
     break
 
