@@ -1,6 +1,7 @@
+
+from mxnet import gluon
 from mxnet import ndarray as nd
 from mxnet import autograd
-from mxnet import gluon
 
 num_train = 100
 num_test = 100
