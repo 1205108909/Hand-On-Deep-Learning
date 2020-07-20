@@ -65,3 +65,5 @@ with net.name_scope():
     net.add(MyDense(2, in_units=32))
 net.initialize()
 print(net(nd.random_uniform(shape=(2, 64))))
+
+# 74分钟
