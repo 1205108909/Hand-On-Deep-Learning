@@ -1,2 +1,5 @@
 # Created by .ignore support plugin (hsz.mobi)
 /.idea/misc.xml
+/lastdemo/*.h5
+/lastdemo/*.csv
+/lastdemo/*.parquet

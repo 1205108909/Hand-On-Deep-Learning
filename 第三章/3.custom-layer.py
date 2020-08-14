@@ -67,3 +67,4 @@ net.initialize()
 print(net(nd.random_uniform(shape=(2, 64))))
 
 # 74分钟
+

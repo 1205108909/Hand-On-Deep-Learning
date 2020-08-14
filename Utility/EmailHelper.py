@@ -1,0 +1,116 @@
+#!/usr/bin/env python
+# encoding: utf-8
+
+"""
+@Author : wangzhaoyun
+@Contact:1205108909@qq.com
+@File : EmailHelper.py
+@Time : 2020/7/31 8:33 
+"""
+
+import smtplib
+import threading
+from email.header import Header
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from configparser import RawConfigParser
+from Utility import Log
+
+
+class EmailHelper(object):
+    _instance_lock = threading.Lock()
+
+    @classmethod
+    def instance(cls, *args, **kwargs):
+        with EmailHelper._instance_lock:
+            if not hasattr(EmailHelper, "_instance"):
+                EmailHelper._instance = EmailHelper(*args, **kwargs)
+        return EmailHelper._instance
+
+    def __init__(self):
+        self.content = ''
+        cfg = RawConfigParser()
+        cfg.read('config.ini')
+        receivers = cfg.get('Email', 'receiveList')
+        self.receivers = receivers.split(';')  # 接收邮箱
+        self.sender = cfg.get('Email', 'sender')
+        self.pwd = cfg.get('Email', 'pwd')
+        self.server = cfg.get('Email', 'server')
+        self.log = Log.get_logger(__name__)
+
+    def add_email_content(self, text):
+        """
+        追加邮件文字内容
+        :param text:全局追加邮件文字内容
+        """
+        self.content += text + ';'
+
+    def send_mail_text(self, subject, is_clear_content=True):
+        """
+        发送只带文字的邮件
+        :param subject:邮件主题
+        :param is_clear_content: 发送邮件后是否删除邮件内容，连续发邮件时若邮件独立则True，邮件与邮件之间内容是追加关系则False
+        """
+        if len(self.content) == 0:
+            return
+        message = MIMEText(self.content, 'plain', 'utf-8')
+        message['Subject'] = Header(subject, 'utf-8')
+
+        try:
+            smtpObj = smtplib.SMTP()
+            smtpObj.connect(self.server)
+            smtpObj.login(self.sender, self.pwd)
+            smtpObj.sendmail(self.sender, self.receivers, message.as_string())
+            print("邮件发送成功")
+            if is_clear_content:
+                self.content = ''
+        except smtplib.SMTPException as e:
+            print(e)
+            print("Error: 无法发送邮件")
+
+    def send_email_file(self, file_path, file_name, subject, is_clear_content=True):
+        """
+        发送带文件的邮件
+        :param file_path:邮件路径
+        :param file_name:邮件中文件名称
+        :param subject:邮件主题
+        :param is_clear_content: 发送邮件后是否删除content，如果邮件独立True，如果邮件与邮件之间是追加关系则False
+        """
+        if len(self.content) == 0:
+            return
+        # 创建一个带附件的实例
+        message = MIMEMultipart()
+        message['Subject'] = Header(subject, 'utf-8')
+
+        # 邮件正文内容
+        message.attach(MIMEText(self.content, 'plain', 'utf-8'))
+
+        # 构造附件1，传送当前目录下的 test.txt 文件
+        att1 = MIMEText(open(file_path, 'rb').read(), 'base64', 'utf-8')
+        att1["Content-Type"] = 'application/octet-stream'
+        # 这里的filename可以任意写，写什么名字，邮件中显示什么名字
+        att1["Content-Disposition"] = f'attachment; filename="{file_name}"'
+        message.attach(att1)
+
+        # # 构造附件2，传送当前目录下的 runoob.txt 文件
+        # att2 = MIMEText(open('runoob.txt', 'rb').read(), 'base64', 'utf-8')
+        # att2["Content-Type"] = 'application/octet-stream'
+        # att2["Content-Disposition"] = 'attachment; filename="runoob.txt"'
+        # message.attach(att2)
+
+        try:
+            smtpObj = smtplib.SMTP()
+            smtpObj.connect(self.server)
+            smtpObj.login(self.sender, self.pwd)
+            smtpObj.sendmail(self.sender, self.receivers, message.as_string())
+            print("邮件发送成功")
+            if is_clear_content:
+                self.content == ''
+        except smtplib.SMTPException as e:
+            print(e)
+            print("Error: 无法发送邮件")
+
+
+if __name__ == '__main__':
+    email = EmailHelper.instance()
+    email.sendEmail()
