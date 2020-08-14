@@ -3,3 +3,4 @@
 /lastdemo/*.h5
 /lastdemo/*.csv
 /lastdemo/*.parquet
+/Order2Tick/*.csv

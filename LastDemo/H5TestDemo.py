@@ -24,21 +24,21 @@ df_tradable_list = df_tradable_list[~df_tradable_list['symbol'].isin(
     ['600710.sh', '601360.sh', '300372.sz', '001914.sz', '001872.sz', '600732.sh', '000155.sz', '000033.sz'])]
 list_symbol = df_tradable_list['symbol'].tolist()
 
-#
-# with h5py.File(os.path.join(f'{date}.h5'), 'r') as f:
-#     for symbol in list_symbol:
-#         time = f[symbol]['Time']
-#         orderKind = f[symbol]['OrderKind']
-#         bsflag = f[symbol]['BSFlag']
-#         price = f[symbol]['Price']
-#         volume = f[symbol]['Volume']
-#         ask_order = f[symbol]['AskOrder']
-#         bid_order = f[symbol]['BidOrder']
-#
-#         transaction = pd.DataFrame(
-#             {'Time': time, 'OrderKind': orderKind, 'Bsflag': bsflag, 'Price': price, 'Volume': volume,
-#              'AskOrder': ask_order, 'BidOrder': bid_order})
-#         transaction.to_hdf(f'{date}_copy.h5', key=symbol)
+
+with h5py.File(os.path.join(f'{date}.h5'), 'r') as f:
+    for symbol in list_symbol:
+        time = f[symbol]['Time']
+        orderKind = f[symbol]['OrderKind']
+        bsflag = f[symbol]['BSFlag']
+        price = f[symbol]['Price']
+        volume = f[symbol]['Volume']
+        ask_order = f[symbol]['AskOrder']
+        bid_order = f[symbol]['BidOrder']
+
+        transaction = pd.DataFrame(
+            {'Time': time, 'OrderKind': orderKind, 'Bsflag': bsflag, 'Price': price, 'Volume': volume,
+             'AskOrder': ask_order, 'BidOrder': bid_order})
+        transaction.to_hdf(f'{date}_copy.h5', key=symbol)
 #
 # HDF5的读取：
 start = dt.datetime.now()
