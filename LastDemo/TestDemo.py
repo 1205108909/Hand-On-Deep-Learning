@@ -49,13 +49,14 @@ def test_parquet_time(symbol_list, date):
     parquet = pq.ParquetFile(path)
     parqueto = pq.ParquetFile(patho)
     for stock_id in symbol_list:
-        stock_index = code_df[code_df['SecurityID'] == stock_id]['RowGroupIndex'].values[0]
-        table = parquet.read_row_group(stock_index, market_list_list)
-        market_df = table.to_pandas()
-        market_df.to_csv("tick_df.csv")
-        tableo = parqueto.read_row_group(stock_index, transaction_column_list)
-        transaction_df = tableo.to_pandas()
-        # transaction_df.to_csv("transaction_df.csv")
+       if stock_id == '000001':
+            stock_index = code_df[code_df['SecurityID'] == stock_id]['RowGroupIndex'].values[0]
+            table = parquet.read_row_group(stock_index, market_list_list)
+            market_df = table.to_pandas()
+            market_df.to_csv("tick_df.csv")
+            tableo = parqueto.read_row_group(stock_index, transaction_column_list)
+            transaction_df = tableo.to_pandas()
+            # transaction_df.to_csv("transaction_df.csv")
 
 
 def test_h5_time(symbol_list, date):

@@ -15,67 +15,17 @@ import numpy as np
 from DataService.JYDataLoader import JYDataLoader
 from datetime import datetime
 import csv
+import warnings
+warnings.filterwarnings("ignore")
 
 # 显示所有列
 pd.set_option('display.max_columns', None)
 # 显示所有行
 pd.set_option('display.max_rows', None)
 
-etf_code = '510300.sh'
-tradingDay = '20200810'
-tick_file_path = 'Y:\\Data\\h5data\\stock\\tick\\'
-
-
-def initialize(self):
-    # 1.生产标准化时间：
-    df_standand_time = self.get_standand_time()
-
-    f = h5py.File(os.path.join(tradingDay + '.h5'), 'r')
-    for symbol in f.keys():
-        df_symbol_tick = self.read_tick(f, symbol)
-        df_symbol_tick1 = df_symbol_tick[df_symbol_tick['Time'] < 93000000]
-        df_symbol_tick2 = df_symbol_tick[
-            (df_symbol_tick['Time'] >= 93000000) & (df_symbol_tick['Time'] < 150000000)]
-        df_symbol_tick2 = pd.merge(df_standand_time, df_symbol_tick2, how='left')
-        df_symbol_tick = pd.concat([df_symbol_tick1, df_symbol_tick2], axis=0)
-
-    # 3.取出成分股tick数据，并进行时间标准化
-    df_symbol_tick = self.get_symbol_tick(df_ETF_list, df_standand_time)
-    etf_tick = self.read_h5_tick([self.etf_code], self.tradingDay, df_standand_time)
-    etf_tick.set_index(['Time'], inplace=True, drop=True)
-
-    # 4.溢价套利，按照AskPrice1买成分股，以BidPrice1卖出ETF，卖出ETF-预估现金-买入股票
-    df_askprice1_tick = df_symbol_tick[['Symbol', 'Time', 'AskPrice1']]
-    df_askprice1_tick = df_askprice1_tick.pivot_table(index='Symbol', columns='Time', values='AskPrice1')
-    df_askprice1_tick.to_excel(self.writer_middle, sheet_name='df_askprice1_tick_pivot', index=True)
-    df_amount_premiums = df_askprice1_tick.apply(lambda x: self.cal_cash_substitution(df_ETF_list, x))
-    df_amount_premiums.to_excel(self.writer_middle, sheet_name='df_amount_premiums', index=True)
-    df_premiums_sum = df_amount_premiums.sum(axis=0)
-    df_premiums_sum.to_excel(self.writer_middle, sheet_name='df_premiums_sum', index=True)
-    df_etf_premiums_profit = etf_tick['BidPrice1'] * etf_unit - etf_estimate_cash - df_premiums_sum
-    df_etf_premiums_profit.to_excel(self.writer_middle, sheet_name='df_etf_premiums_profit', index=True)
-    print(df_etf_premiums_profit)
-
-    # 5.折价套利，按照BidPrice1卖出成分股，以AskPrice1买入ETF，卖出股票+预估现金-买入ETF
-    df_bidprice1_tick = df_symbol_tick[['Symbol', 'Time', 'BidPrice1']]
-    df_bidprice1_tick = df_bidprice1_tick.pivot_table(index='Symbol', columns='Time', values='BidPrice1')
-    df_amount_discount = df_bidprice1_tick.apply(lambda x: self.cal_cash_substitution(df_ETF_list, x))
-    df_discount_sum = df_amount_discount.sum(axis=0)
-    df_etf_discount_profit = df_discount_sum - etf_tick['AskPrice1'] * etf_unit + etf_estimate_cash
-    df_etf_discount_profit.to_excel(self.writer_middle, sheet_name='df_etf_discount_profit', index=True)
-
-    # 6.合并折溢价利润
-    df_etf_pre_dis = pd.concat([df_etf_premiums_profit, df_etf_discount_profit], axis=1)
-    df_etf_pre_dis.columns = ['premiums_profit', 'discount_profit']
-    df_etf_pre_dis.drop([93000000], inplace=True)  # 删除9:30:00的折溢价率，因为此时点,多数票没有tick数据
-    df_etf_pre_dis.to_excel(self.writer_output, sheet_name='df_etf_pre_dis', index=True)
-
-    self.writer_middle.save()
-    self.writer_output.save()
-
 
 def get_standand_time():
-    tick_time = pd.date_range(f'{tradingDay} 9:30:00', f'{tradingDay} 14:57:00', freq='3s')
+    tick_time = pd.date_range(f'{tradingDay} 9:30:00', f'{tradingDay} 15:00:00', freq='3s')
     tick_time = tick_time[(tick_time <= datetime.strptime(f'{tradingDay} 11:30:00', '%Y%m%d %H:%M:%S')) | (
             tick_time >= datetime.strptime(f'{tradingDay} 13:00:00', '%Y%m%d %H:%M:%S'))]
     series = pd.Series(tick_time)
@@ -83,32 +33,8 @@ def get_standand_time():
     return pd.DataFrame({'Time': series})
 
 
-def read_h5_tick(self, universe, tradingDay, df_standand_time):
-    """
-    :key df_standand_time 标准时间
-    """
-    time = datetime.now()
-    if not os.path.exists(self.tick_file_path):
-        self.logger.error(f"{self.tick_file_path} is not Existed")
-        return
-    f = h5py.File(os.path.join(self.tick_file_path, tradingDay + '.h5'), 'r')
-    df_universe_tick = pd.DataFrame()
-    for symbol in universe:
-        df_symbol_tick = self.read_tick(f, symbol)
-        df_symbol_tick = df_symbol_tick[
-            (df_symbol_tick['Time'] >= 93000000) & (df_symbol_tick['Time'] < 145700000)]
-        df_symbol_tick = df_symbol_tick[['Time', 'Price', 'AskPrice1', 'BidPrice1']]
-        df_symbol_tick = pd.merge(df_standand_time, df_symbol_tick, how='left')
-        df_symbol_tick.fillna(method='ffill', inplace=True)
-        df_symbol_tick['Symbol'] = symbol
-        df_universe_tick = pd.concat([df_universe_tick, df_symbol_tick], axis=0)
-    time = datetime.now() - time
-    print(time)
-    f.close()
-    return df_universe_tick
 
-
-def read_tick(self, f, symbol):
+def read_tick(f, symbol):
     """
     read tick data
     :param symbol: '600000.sh' str
@@ -117,7 +43,11 @@ def read_tick(self, f, symbol):
     """
     if symbol not in f.keys():
         return None
+    print(symbol)
     time = f[symbol]['Time']
+    if len(time) == 0:
+        print(f'{symbol} tick is null')
+        return pd.DataFrame()
     price = f[symbol]['Price']
     volume = f[symbol]['Volume']
     turnover = f[symbol]['Turnover']
@@ -145,5 +75,113 @@ def read_tick(self, f, symbol):
         tick['AskPrice' + str(i + 1)] = f[symbol]['AskPrice10'][:][:, i]
         tick['BidVolume' + str(i + 1)] = f[symbol]['BidVolume10'][:][:, i]
         tick['AskVolume' + str(i + 1)] = f[symbol]['AskVolume10'][:][:, i]
-
     return tick
+
+
+def update(symbol, tick):
+    """
+    更新Tick
+    :param symbol: 600000.sh
+    :param tradingday: '20150101'
+    :param tick: dict:
+            {'Time', 'Price', 'Volume', 'Turnover', 'MatchItem',
+             'BSFlag','AccVolume', 'AccTurnover', 'AskPrice10',
+             'AskVolume10','BidPrice10', 'BidVolume10', 'AskAvgPrice',
+             'BidAvgPrice','TotalAskVolume', 'TotalBidVolume', 'Open', 'High',
+             'Low', 'PreClose'}
+    :return:
+    """
+    h5file = h5py.File(os.path.join(f'{tradingDay}_timeformat_tick.h5'), 'a')
+
+    time = np.array(tick['Time'], dtype=np.uint32)
+    price = np.array(tick['Price'], dtype=np.float32)
+    volume = np.array(tick['Volume'], dtype=np.int64)
+    turnover = np.array(tick['Turnover'], dtype=np.int64)
+    matchItem = np.array(tick['MatchItem'], dtype=np.uint32)
+    bsflag = np.array(tick['BSFlag'], dtype='S1')
+    accVolume = np.array(tick['AccVolume'], dtype=np.int64)
+    accTurnover = np.array(tick['AccTurnover'], dtype=np.int64)
+
+    askAvgPrice = np.array(tick['AskAvgPrice'], dtype=np.float32)
+    bidAvgPrice = np.array(tick['BidAvgPrice'], dtype=np.float32)
+    totalAskVolume = np.array(tick['TotalAskVolume'], dtype=np.int64)
+    totalBidVolume = np.array(tick['TotalBidVolume'], dtype=np.int64)
+    open_p = np.array(tick['Open'], dtype=np.float32)
+    high = np.array(tick['High'], dtype=np.float32)
+    low = np.array(tick['Low'], dtype=np.float32)
+    preclose = np.array(tick['PreClose'], dtype=np.float32)
+    # 科创板
+    afterPrice = np.array(tick['AfterPrice'], dtype=np.float32)
+    afterVolume = np.array(tick['AfterVolume'], dtype=np.uint64)
+    afterTurnover = np.array(tick['AfterTurnover'], dtype=np.uint64)
+    afterMatchItems = np.array(tick['AfterMatchItems'], dtype=np.uint32)
+
+
+    group = h5file.create_group(symbol.lower())
+    group.create_dataset('Time', data=time, compression='gzip', compression_opts=9)
+    group.create_dataset('Price', data=price, compression='gzip', compression_opts=9)
+    group.create_dataset('Volume', data=volume, compression='gzip', compression_opts=9)
+    group.create_dataset('Turnover', data=turnover, compression='gzip', compression_opts=9)
+    group.create_dataset('MatchItem', data=matchItem, compression='gzip', compression_opts=9)
+    group.create_dataset('BSFlag', data=bsflag, compression='gzip', compression_opts=9)
+    group.create_dataset('AccVolume', data=accVolume, compression='gzip', compression_opts=9)
+    group.create_dataset('AccTurnover', data=accTurnover, compression='gzip', compression_opts=9)
+
+    group.create_dataset('AskAvgPrice', data=askAvgPrice, compression='gzip', compression_opts=9)
+    group.create_dataset('BidAvgPrice', data=bidAvgPrice, compression='gzip', compression_opts=9)
+    group.create_dataset('TotalAskVolume', data=totalAskVolume, compression='gzip', compression_opts=9)
+    group.create_dataset('TotalBidVolume', data=totalBidVolume, compression='gzip', compression_opts=9)
+    group.create_dataset('Open', data=open_p, compression='gzip', compression_opts=9)
+    group.create_dataset('High', data=high, compression='gzip', compression_opts=9)
+    group.create_dataset('Low', data=low, compression='gzip', compression_opts=9)
+    group.create_dataset('PreClose', data=preclose, compression='gzip', compression_opts=9)
+
+    group.create_dataset('AfterPrice', data=afterPrice, compression='gzip', compression_opts=9)
+    group.create_dataset('AfterVolume', data=afterVolume, compression='gzip', compression_opts=9)
+    group.create_dataset('AfterTurnover', data=afterTurnover, compression='gzip', compression_opts=9)
+    group.create_dataset('AfterMatchItem', data=afterMatchItems, compression='gzip', compression_opts=9)
+
+    AskPrice = np.array([tick[f'AskPrice{i + 1}'] for i in range(10)], dtype=np.float32)
+    AskVolume = np.array([tick[f'AskVolume{i + 1}'] for i in range(10)], dtype=np.uint32)
+    BidPrice = np.array([tick[f'BidPrice{i + 1}'] for i in range(10)], dtype=np.float32)
+    BidVolume = np.array([tick[f'BidVolume{i + 1}'] for i in range(10)], dtype=np.uint32)
+
+    group.create_dataset('AskPrice10', data=AskPrice.T, compression='gzip', compression_opts=9)
+    group.create_dataset('AskVolume10', data=AskVolume.T, compression='gzip', compression_opts=9)
+    group.create_dataset('BidPrice10', data=BidPrice.T, compression='gzip', compression_opts=9)
+    group.create_dataset('BidVolume10', data=BidVolume.T, compression='gzip', compression_opts=9)
+
+    h5file.close()
+
+
+start = datetime.now()
+
+tradingDay = '20200813'
+# 1.生产标准化时间：
+df_standand_time = get_standand_time()
+
+f = h5py.File(os.path.join(tradingDay + '.h5'), 'r')
+for symbol in f.keys():
+    df_symbol_tick = read_tick(f, symbol)
+    if df_symbol_tick.shape[0] == 0:
+        continue
+    df_symbol_tick1 = df_symbol_tick[df_symbol_tick['Time'] < 93000000]
+    df_symbol_tick2 = df_symbol_tick[
+        (df_symbol_tick['Time'] >= 93000000) & (df_symbol_tick['Time'] <= 150000000)]
+    df_symbol_tick3 = df_symbol_tick[df_symbol_tick['Time'] > 150000000]
+    df_symbol_tick2 = pd.merge(df_standand_time, df_symbol_tick2, how='left')
+
+    df_symbol_tick2['AccVolume'].fillna(method='ffill', inplace=True)
+    df_symbol_tick2['AccTurnover'].fillna(method='ffill', inplace=True)
+    df_symbol_tick2.fillna(method='ffill', inplace=True)
+    df_symbol_tick = pd.concat([df_symbol_tick1, df_symbol_tick2, df_symbol_tick3], axis=0)
+
+    df_symbol_tick['Volume'] = df_symbol_tick['AccVolume'].diff(1)
+    df_symbol_tick['Turnover'] = df_symbol_tick['AccTurnover'].diff(1)
+    df_symbol_tick['Volume'].fillna(0, inplace=True)
+    df_symbol_tick['Turnover'].fillna(0, inplace=True)
+    df_symbol_tick.loc[df_symbol_tick.loc[:, 'Volume'] == 0, ['BSFlag']] = b' '
+    update(symbol, df_symbol_tick)
+
+end = datetime.now()
+print(end - start)
